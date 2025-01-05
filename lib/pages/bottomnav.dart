@@ -29,7 +29,7 @@ class _BottomNavState extends State<BottomNav> {
     order = const Order();
     profile = const Profile();
     wallet = const Wallet();
-    pages = [homepage, order, wallet, profile];
+    pages = [homepage, refrigerator, recipegen, profile];
     super.initState();
   }
 
