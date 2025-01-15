@@ -1,201 +1,253 @@
 import 'dart:async';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:nexusgo/service/database.dart';
-import 'package:nexusgo/service/shared_pref.dart';
-import 'package:nexusgo/widget/widget_support.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:nexusgo/service/database.dart';  // Import your DatabaseMethods class
+import 'package:firebase_auth/firebase_auth.dart';  // Import FirebaseAuth to get userId
 
-class Order extends StatefulWidget {
-  const Order({super.key});
+class Fridge extends StatefulWidget {
+  const Fridge({Key? key}) : super(key: key);
 
   @override
-  State<Order> createState() => _OrderState();
+  State<Fridge> createState() => _FridgeState();
 }
 
-class _OrderState extends State<Order> {
-String? id, wallet;
-int total=0, amount2=0;
+class _FridgeState extends State<Fridge> {
+  final DatabaseMethods _databaseMethods = DatabaseMethods();  // Initialize DatabaseMethods instance
+  late Stream<QuerySnapshot> fridgeStream;
+  String searchQuery = "";
+  String userId = "";  // Variable to hold userId
+  String userName = "";  // Variable to hold userName
 
-void startTimer(){
-  Timer(Duration(seconds: 3), (){
-    amount2 = total;
-    setState(() {
-      
-    });
-  });
-}
 
-getthesharedpref() async{
-  id= await SharedPreferenceHelper().getUserId();
-  wallet= await SharedPreferenceHelper().getUserWallet();
-  setState(() {
-    
-  });
-}
+  void _getUserInfo() async {
+  final user = FirebaseAuth.instance.currentUser;
+  if (user != null) {
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users') // Replace 'users' with your Firestore user collection name
+          .doc(userId)
+          .get();
 
-ontheload() async{
-  await getthesharedpref();
-  foodStream = await DatabaseMethods().getFoodCart(id!);
-  setState(() {
-    
-  });
+      if (userDoc.exists) {
+        setState(() {
+          userId = user.uid; // Get userId
+          userName = userDoc.data()?['Name'] ?? 'Unknown User'; // Get userName from Firestore
+        });
+      } else {
+        print("User document does not exist in Firestore.");
+      }
+    } catch (e) {
+      print("Error fetching user info from Firestore: $e");
+    }
+  }
 }
 
 @override
-void initState(){
-  ontheload();
-  startTimer();
-  super.initState();
-}
+  void initState() {
+    super.initState();
 
-Stream? foodStream;
-  
- Widget foodCart() {
-  return StreamBuilder(
-    stream: foodStream,
-    builder: (context, AsyncSnapshot snapshot) {
-      return snapshot.hasData
-          ? ListView.builder(
-              padding: EdgeInsets.zero,
-              itemCount: snapshot.data.docs.length,
-              shrinkWrap: true,
-              scrollDirection: Axis.vertical,
-              itemBuilder: (context, index) {
-                DocumentSnapshot ds = snapshot.data.docs[index];
-                total= total+ int.parse(ds["Total"]);
-                return Container(
-                            margin: EdgeInsets.only(left: 20.0, right: 20.0, bottom: 10.0),
-                            child: Material(
-                              elevation: 5.0,
-                              borderRadius: BorderRadius.circular(10),
-                              child: Container(
-                                decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
-                                padding: EdgeInsets.all(10),
-                                child: Row(
-                                 
-                                  children: [
-                                  Container(
-                                    height: 90,
-                                    width: 40,
-                                    decoration: BoxDecoration(border: Border.all(), borderRadius: BorderRadius.circular(10)),
-                                    child: Center(child: Text(ds["Quantity"])),
-                                  ),
-                                  SizedBox(width: 20.0,),
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(60),
-                                    child: Image.network(ds["Image"], height: 90, width: 90, fit: BoxFit.cover,)),
-                                    SizedBox(width: 20.0,),
-                                    Column(
-                                      children: [
-                                        Text(ds["Name"], style: AppWidget.semiBoldTextFieldStyle(),),
-                                        Text("\$"+ ds["Total"], style: AppWidget.semiBoldTextFieldStyle(),)
-                                      ],
-                                    )
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-              },
-            )
-          : const CircularProgressIndicator();
+    // Get current user information
+    _getUserInfo();
+
+    fridgeStream = FirebaseFirestore.instance.collection('Fridge').snapshots();  // Replace this with your custom method if needed
+  }
+  Future<void> addFood(
+      String name, String category, DateTime expiredDate, int quantity) async {
+    if (userId.isNotEmpty && userName.isNotEmpty) {
+      final fridge = {
+        'name': name,
+        'category': category,
+        'date': DateTime.now().toIso8601String(),
+        'expiredDate': expiredDate.toIso8601String(),
+        'quantity': quantity,
+        'completed': false,
+      };
+
+      // Pass userId and userName when calling the method to add food item
+      await _databaseMethods.addFoodItem(fridge, userId, userName);
+    }
+  }
+
+  Future<void> deleteFood(String id) async {
+    await FirebaseFirestore.instance.collection('fridge').doc(id).delete();
+  }
+
+  void createNewFoodItem() {
+  final nameController = TextEditingController();
+  final quantityController = TextEditingController();
+  String selectedCategory = "Freezer";
+  DateTime selectedDate = DateTime.now();
+
+  showDialog(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setState) {
+          return AlertDialog(
+            title: Text('Add New Food'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: InputDecoration(labelText: 'Food Name'),
+                ),
+                TextField(
+                  controller: quantityController,
+                  decoration: InputDecoration(labelText: 'Quantity'),
+                  keyboardType: TextInputType.number,
+                ),
+                DropdownButton<String>(
+                  value: selectedCategory,
+                  items: const [
+                    DropdownMenuItem(value: "Freezer", child: Text("Freezer")),
+                    DropdownMenuItem(value: "Chiller", child: Text("Chiller")),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedCategory = value!;
+                    });
+                  },
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final DateTime? pickedDate = await showDatePicker(
+                      context: context,
+                      initialDate: selectedDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime(2100),
+                    );
+                    if (pickedDate != null) {
+                      setState(() {
+                        selectedDate = pickedDate;
+                      });
+                    }
+                  },
+                  child: Text(
+                      'Select Expired Date: ${selectedDate.toLocal().toString().split(' ')[0]}'),
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  final name = nameController.text.trim();
+                  final quantity =
+                      int.tryParse(quantityController.text.trim()) ?? 0;
+                  if (name.isNotEmpty && quantity > 0) {
+                    addFood(name, selectedCategory, selectedDate, quantity);
+                  }
+                  Navigator.pop(context);
+                },
+                child: Text('Add'),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+                child: Text('Cancel'),
+              ),
+            ],
+          );
+        },
+      );
     },
   );
-} 
-  
-  
-  
+}
+
+
+  List<QueryDocumentSnapshot> filterFridges(List<QueryDocumentSnapshot> fridges) {
+    return fridges.where((fridge) {
+      final data = fridge.data() as Map<String, dynamic>;
+      final name = data['name']?.toString().toLowerCase() ?? "";
+      return name.contains(searchQuery.toLowerCase());
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        padding: EdgeInsets.only(top: 30.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-          Material(
-                      elevation: 2.0,
-                      child: Container(
-                          padding: const EdgeInsets.only(bottom: 10.0),
-                          child: Center(
-                              child: Text(
-                            "Food Cart",
-                            style: AppWidget.HeadlineTextFieldStyle(),
-                          )))),
-                          SizedBox(
-                            height: 20.0,),
-                            Container(
-
-                            margin: EdgeInsets.only(left: 20.0, right: 20.0, bottom:10.0),
-                            child: Material(
-                              elevation: 5.0,
-                              borderRadius: BorderRadius.circular(10),
-                              // child: Container(
-                              //   decoration: BoxDecoration(borderRadius: BorderRadius.circular(10)),
-                              //   padding: EdgeInsets.all(10),
-                              //   child: Row(
-                                 
-                              //     children: [
-                              //     Container(
-                              //       height: 90,
-                              //       width: 40,
-                              //       decoration: BoxDecoration(border: Border.all(), borderRadius: BorderRadius.circular(10)),
-                              //       child: Center(child: Text("2")),
-                              //     ),
-                              //     SizedBox(width: 20.0,),
-                              //     ClipRRect(
-                              //       borderRadius: BorderRadius.circular(60),
-                              //       child: Image.asset(
-                              //         "images/salad1.jpg", 
-                              //         height: 90, width: 90, fit: BoxFit.cover,)),
-                              //       SizedBox(width: 20.0,),
-                              //       Column(
-                              //         children: [
-                              //           Text("pizza", style: AppWidget.semiBoldTextFieldStyle(),),
-                              //           Text("\$45", style: AppWidget.semiBoldTextFieldStyle(),)
-                              //         ],
-                              //       )
-                              //     ],
-                              //   ),
-                              // ),
-                            ),
-                          ),
-                          Container(
-                            height: MediaQuery.of(context).size.height/2,
-                            child: foodCart()),
-                          Spacer(),
-                          Divider(),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 10.0, right: 10.0),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text("Total Price", style: AppWidget.boldTextFieldStyle(),),
-                                Text(
-                                  "\$"+total.toString(),
-                                  style: AppWidget.semiBoldTextFieldStyle(),)
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 20.0,),
-                          GestureDetector(
-                            onTap: () async {
-                              int amount= int.parse(wallet!)-amount2;
-                              await DatabaseMethods().UpdateUserwallet(id!, amount.toString());
-                              await SharedPreferenceHelper().saveUserWallet(amount.toString());
-                            },
-                            child: Container(
-                            
-                              padding: EdgeInsets.symmetric(vertical: 10.0),
-                              width: MediaQuery.of(context).size.width,
-                              decoration: BoxDecoration(color: Colors.black, borderRadius: BorderRadius.circular(10)),
-                              margin: EdgeInsets.only(left: 20.0, right: 20.0, bottom: 20.0),
-                              child: Center(child: Text("Checkout", style: TextStyle(color: Colors.white, fontSize: 20.0, fontWeight: FontWeight.bold),),
-                            )),
-                          )
+      appBar: AppBar(
+        title: const Text('Food Inventory'),
+        actions: [
+          IconButton(
+            onPressed: createNewFoodItem,
+            icon: const Icon(Icons.add),
+          ),
         ],
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(60),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: TextField(
+              decoration: InputDecoration(
+                hintText: 'Search food...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                prefixIcon: Icon(Icons.search),
+              ),
+              onChanged: (value) {
+                setState(() {
+                  searchQuery = value;
+                });
+              },
+            ),
+          ),
         ),
+      ),
+      body: StreamBuilder<QuerySnapshot>(
+        stream: fridgeStream,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final fridges = filterFridges(snapshot.data!.docs);
+
+          final upperFridges = fridges
+              .where((fridge) =>
+                  (fridge.data() as Map<String, dynamic>)['category'] == 'Upper')
+              .toList();
+          final lowerFridges = fridges
+              .where((fridge) =>
+                  (fridge.data() as Map<String, dynamic>)['category'] == 'Lower')
+              .toList();
+
+          return ListView(
+            children: [
+              if (upperFridges.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text('Freezer',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                ...upperFridges.map((fridge) => buildFridgeTile(fridge)).toList(),
+              ],
+              if (lowerFridges.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text('Chiller',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ),
+                ...lowerFridges.map((fridge) => buildFridgeTile(fridge)).toList(),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget buildFridgeTile(QueryDocumentSnapshot fridge) {
+    final data = fridge.data() as Map<String, dynamic>;
+    final id = fridge.id;
+
+    return ListTile(
+      title: Text(data['name'] ?? 'Unnamed Food'),
+      subtitle: Text(
+          'Category: ${data['category'] ?? 'Uncategorized'}\nExpired Date: ${data['expiredDate'] ?? 'No Expiry'}\nQuantity: ${data['quantity'] ?? 0}'),
+      trailing: IconButton(
+        icon: Icon(Icons.delete, color: Colors.red),
+        onPressed: () => deleteFood(id),
       ),
     );
   }
