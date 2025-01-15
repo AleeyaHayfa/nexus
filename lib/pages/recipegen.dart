@@ -1,383 +1,249 @@
-import 'dart:async';
+// ignore_for_file: prefer_interpolation_to_compose_strings, deprecated_member_use, use_key_in_widget_constructors, library_private_types_in_public_api, prefer_const_constructors_in_immutables, avoid_print, must_be_immutable, unnecessary_import
+// RECIPE GENERATOR
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_stripe/flutter_stripe.dart';
-import 'package:nexusgo/service/database.dart';
-import 'package:nexusgo/service/shared_pref.dart';
-import 'package:nexusgo/widget/app_constant.dart';
-import 'package:nexusgo/widget/widget_support.dart';
 import 'package:http/http.dart' as http;
+import 'package:nexusgo/pages/model.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class Wallet extends StatefulWidget {
-  const Wallet({super.key});
+class RecipeGen extends StatefulWidget {
+  const RecipeGen({super.key});
 
   @override
-  State<Wallet> createState() => _WalletState();
+  _RecipeGenState createState() => _RecipeGenState();
 }
 
-class _WalletState extends State<Wallet> {
-  String? wallet, id;
-  int? add;
-  TextEditingController amountcontroller = TextEditingController();
-
-  getthesharedpref() async {
-    wallet = await SharedPreferenceHelper().getUserWallet();
-    id = await SharedPreferenceHelper().getUserId();
-    setState(() {});
-  }
-
-  ontheload() async {
-    await getthesharedpref();
-    setState(() {});
+class _RecipeGenState extends State<RecipeGen> {
+  List<Model> list = <Model>[];
+  String? text;
+  final url =
+      'https://api.edamam.com/search?q=rice&app_id=232d458a&app_key=d7140a99e3fb5e29c6d811f46685ea0f&from=0&to=10&calories=591-722&health=alcohol-free';
+  getApiData() async {
+    var response = await http.get(Uri.parse(url));
+    Map json = jsonDecode(response.body);
+    json['hits'].forEach((e) {
+      Model model = Model(
+          image: e['recipe']['image'],
+          url: e['recipe']['url'],
+          source: e['recipe']['source'],
+          label: e['recipe']['label']);
+      setState(() {
+        list.add(model);
+      });
+    });
   }
 
   @override
   void initState() {
-    ontheload();
     super.initState();
+    getApiData();
   }
-
-  Map<String, dynamic>? paymentIntent;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: wallet == null
-          ? const CircularProgressIndicator()
-          : Container(
-              margin: const EdgeInsets.only(top: 60.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Material(
-                      elevation: 2.0,
-                      child: Container(
-                          padding: const EdgeInsets.only(bottom: 10.0),
-                          child: Center(
-                              child: Text(
-                            "Wallet",
-                            style: AppWidget.HeadlineTextFieldStyle(),
-                          )))),
-                  const SizedBox(
-                    height: 30.0,
-                  ),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(vertical: 10.0, horizontal: 10.0),
-                    width: MediaQuery.of(context).size.width,
-                    decoration: const BoxDecoration(color: Color(0xFFF2F2F2)),
-                    child: Row(
-                      children: [
-                        Image.asset(
-                          "images/wallet.png",
-                          height: 60,
-                          width: 60,
-                          fit: BoxFit.cover,
-                        ),
-                        const SizedBox(
-                          width: 40.0,
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "Your Wallet",
-                              style: AppWidget.LightTextFieldStyle(),
-                            ),
-                            const SizedBox(
-                              height: 5.0,
-                            ),
-                            Text(
-                              "\$${wallet!}",
-                              style: AppWidget.boldTextFieldStyle(),
-                            )
-                          ],
-                        )
-                      ],
-                    ),
-                  ),
-                  const SizedBox(
-                    height: 20.0,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 20.0),
-                    child: Text(
-                      "Add money",
-                      style: AppWidget.semiBoldTextFieldStyle(),
-                    ),
-                  ),
-                  const SizedBox(
-                    height: 10.0,
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          makePayment('100');
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFE9E2E2)),
-                              borderRadius: BorderRadius.circular(5)),
-                          child: Text(
-                            "\$" "100",
-                            style: AppWidget.semiBoldTextFieldStyle(),
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          makePayment('500');
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFE9E2E2)),
-                              borderRadius: BorderRadius.circular(5)),
-                          child: Text(
-                            "\$" "500",
-                            style: AppWidget.semiBoldTextFieldStyle(),
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          makePayment('1000');
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFE9E2E2)),
-                              borderRadius: BorderRadius.circular(5)),
-                          child: Text(
-                            "\$" "1000",
-                            style: AppWidget.semiBoldTextFieldStyle(),
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          makePayment('2000');
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                              border: Border.all(color: const Color(0xFFE9E2E2)),
-                              borderRadius: BorderRadius.circular(5)),
-                          child: Text(
-                            "\$" "2000",
-                            style: AppWidget.semiBoldTextFieldStyle(),
-                          ),
-                        ),
-                      )
-                    ],
-                  ),
-                  const SizedBox(
-                    height: 50.0,
-                  ),
-                  GestureDetector(
-                    onTap: (){
-                      openEdit();
+      appBar: AppBar(
+        elevation: 0,
+        title: const Text('Recipe Generator'),
+      ),
+      body: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: SingleChildScrollView(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            TextField(
+              onChanged: (v) {
+                text = v;
+              },
+              decoration: InputDecoration(
+                  suffixIcon: IconButton(
+                      onPressed: () {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => SearchPage(
+                                      search: text,
+                                    )));
+                      },
+                      icon: const Icon(Icons.search)),
+                  hintText: "Search For Recipe",
+                  border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  fillColor: Colors.green.withOpacity(0.04),
+                  filled: true),
+            ),
+            const SizedBox(
+              height: 15,
+            ),
+            GridView.builder(
+              physics: const ScrollPhysics(),
+              shrinkWrap: true,
+              primary: true,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, crossAxisSpacing: 15, mainAxisSpacing: 15),
+              itemCount: list.length,
+              itemBuilder: (context, i) {
+                final x = list[i];
+                return InkWell(
+                    onTap: () {
+                      print("Navigating to URL: ${x.url}");
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => WebPage(
+                                    url: x.url,
+                                  )));
                     },
                     child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 20.0),
-                      padding: const EdgeInsets.symmetric(vertical: 12.0),
-                      width: MediaQuery.of(context).size.width,
                       decoration: BoxDecoration(
-                          color: const Color(0xFF008080),
-                          borderRadius: BorderRadius.circular(8)),
-                      child: const Center(
-                        child: Text(
-                          "Add Money",
-                          style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16.0,
-                              fontFamily: 'Poppins',
-                              fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                  )
-                ],
-              ),
-            ),
+                          image: DecorationImage(
+                              fit: BoxFit.fill,
+                              image: NetworkImage(x.image.toString()))),
+                      child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                                padding: const EdgeInsets.all(3),
+                                height: 40,
+                                color: Colors.black.withOpacity(0.5),
+                                child: Center(
+                                  child: Text(x.label.toString()),
+                                )),
+                            Container(
+                                padding: const EdgeInsets.all(3),
+                                height: 40,
+                                color: Colors.black.withOpacity(0.5),
+                                child: Center(
+                                  child: Text("source: " + x.source.toString()),
+                                )),
+                          ]),
+                    ));
+              },
+            )
+          ]),
+        ),
+      ),
     );
   }
+}
 
-  Future<void> makePayment(String amount) async {
-    try {
-      paymentIntent = await createPaymentIntent(amount, 'MYR');
-      //Payment Sheet
-      await Stripe.instance
-          .initPaymentSheet(
-              paymentSheetParameters: SetupPaymentSheetParameters(
-                  paymentIntentClientSecret: paymentIntent!['client_secret'],
-                  // applePay: const PaymentSheetApplePay(merchantCountryCode: '+92',),
-                  // googlePay: const PaymentSheetGooglePay(testEnv: true, currencyCode: "US", merchantCountryCode: "+92"),
-                  style: ThemeMode.dark,
-                  merchantDisplayName: 'NexusGO'))
-          .then((value) {});
+class WebPage extends StatelessWidget {
+  final String? url;
+  WebPage({
+    this.url,
+  });
 
-      ///now finally display payment sheeet
-      displayPaymentSheet(amount);
-    } catch (e, s) {
-      print('exception:$e$s');
+  @override
+  Widget build(BuildContext context) {
+    if (url != null) {
+      launch(url!);
     }
+    return Scaffold(
+        body: SafeArea(
+            child: WebView(
+      initialUrl: url,
+      javascriptMode: JavascriptMode.unrestricted,
+    )));
   }
+}
 
-  displayPaymentSheet(String amount) async {
-    try {
-      await Stripe.instance.presentPaymentSheet().then((value) async {
-        // add = int.parse(wallet!) + int.parse(amount);
-        // await SharedPreferenceHelper().saveUserWallet(add.toString());
-        // await DatabaseMethods().UpdateUserwallet(id!, add.toString());
-        // ignore: use_build_context_synchronously
-        showDialog(
-            context: context,
-            builder: (_) => const AlertDialog(
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.check_circle,
-                            color: Colors.green,
-                          ),
-                          Text("Payment Successfull"),
-                        ],
-                      ),
-                    ],
-                  ),
-                ));
-        //await getthesharedpref(); //tukar nama?
-        // ignore: use_build_context_synchronously
+class SearchPage extends StatefulWidget {
+  String? search;
+  SearchPage({this.search});
+  @override
+  _SearchPageState createState() => _SearchPageState();
+}
 
-        paymentIntent = null;
-      }).onError((error, stackTrace) {
-        print('Error is:--->$error $stackTrace');
+class _SearchPageState extends State<SearchPage> {
+  List<Model> list = <Model>[];
+  String? text;
+
+  getApiData(search) async {
+    final url =
+        'https://api.edamam.com/search?q=$search&app_id=232d458a&app_key=d7140a99e3fb5e29c6d811f46685ea0f&from=0&to=10&calories=591-722&health=alcohol-free';
+
+    var response = await http.get(Uri.parse(url));
+    Map json = jsonDecode(response.body);
+    json['hits'].forEach((e) {
+      Model model = Model(
+          image: e['recipe']['image'],
+          url: e['recipe']['url'],
+          source: e['recipe']['source'],
+          label: e['recipe']['label']);
+      setState(() {
+        list.add(model);
       });
-    } on StripeException catch (e) {
-      print('Error is:---> $e');
-      showDialog(
-          context: context,
-          builder: (_) => const AlertDialog(
-                content: Text("Cancelled "),
-              ));
-    } catch (e) {
-      print('$e');
-    }
+    });
   }
 
-  //  Future<Map<String, dynamic>>
-  createPaymentIntent(String amount, String currency) async {
-    try {
-      Map<String, dynamic> body = {
-        'amount': calculateAmount(amount),
-        'currency': currency,
-        'payment_method_types[]': 'card'
-      };
-
-      var response = await http.post(
-        Uri.parse('https://api.stripe.com/v1/payment_intents'),
-        headers: {
-          'Authorization': 'Bearer $secretKey',
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        body: body,
-      );
-      // ignore: avoid_print
-      print('Payment Intent Body->>> ${response.body.toString()}');
-      return jsonDecode(response.body);
-    } catch (err) {
-      // ignore: avoid_print
-      print('err charging user: ${err.toString()}');
-    }
+  @override
+  void initState() {
+    super.initState();
+    getApiData(widget.search);
   }
 
-  calculateAmount(String amount) {
-    final calculatedAmout = (int.parse(amount)) * 100;
-
-    return calculatedAmout.toString();
-  }
-
-  Future openEdit() => showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-            content: SingleChildScrollView(
-              child: Container(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        GestureDetector(
-                            onTap: () {
-                              Navigator.pop(context);
-                            },
-                            child: const Icon(Icons.cancel)),
-                        const SizedBox(
-                          width: 60.0,
-                        ),
-                        const Center(
-                          child: Text(
-                            "Add Money",
-                            style: TextStyle(
-                              color: Color(0xFF008080),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        )
-                      ],
-                    ),
-                    const SizedBox(
-                      height: 20.0,
-                    ),
-                    const Text("Amount"),
-                    const SizedBox(
-                      height: 10.0,
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10.0),
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        elevation: 0,
+        title: const Text('Recipe'),
+      ),
+      body: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        child: SingleChildScrollView(
+          child:
+              Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            GridView.builder(
+              physics: const ScrollPhysics(),
+              shrinkWrap: true,
+              primary: true,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, crossAxisSpacing: 15, mainAxisSpacing: 15),
+              itemCount: list.length,
+              itemBuilder: (context, i) {
+                final x = list[i];
+                return InkWell(
+                    onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (context) => WebPage(
+                                    url: x.url,
+                                  )));
+                    },
+                    child: Container(
                       decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black38, width: 2.0),
-                          borderRadius: BorderRadius.circular(10)),
-                      child: TextField(
-                        controller: amountcontroller,
-                        decoration: const InputDecoration(
-                            border: InputBorder.none, hintText: 'Enter Amount'),
-                      ),
-                    ),
-                    const SizedBox(
-                      height: 20.0,
-                    ),
-                    Center(
-                      child: GestureDetector(
-                        onTap: (){
-                          Navigator.pop(context);
-                          makePayment(amountcontroller.text);
-                        },
-                        child: Container(
-                          width: 100,
-                          padding: const EdgeInsets.all(5),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF008080),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Center(
-                              child: Text(
-                            "Pay",
-                            style: TextStyle(color: Colors.white),
-                          )),
-                        ),
-                      ),
-                    )
-                  ],
-                ),
-              ),
-            ),
-          ));
+                          image: DecorationImage(
+                              fit: BoxFit.fill,
+                              image: NetworkImage(x.image.toString()))),
+                      child: Column(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Container(
+                                padding: const EdgeInsets.all(3),
+                                height: 40,
+                                color: Colors.black.withOpacity(0.5),
+                                child: Center(
+                                  child: Text(x.label.toString()),
+                                )),
+                            Container(
+                                padding: const EdgeInsets.all(3),
+                                height: 40,
+                                color: Colors.black.withOpacity(0.5),
+                                child: Center(
+                                  child: Text("source: " + x.source.toString()),
+                                )),
+                          ]),
+                    ));
+              },
+            )
+          ]),
+        ),
+      ),
+    );
+  }
 }
